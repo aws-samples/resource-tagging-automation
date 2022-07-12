@@ -1,0 +1,8 @@
+.DS_Store
+.venv
+
+# CDK asset staging directory
+.cdk.staging
+cdk.out
+.cdk_output
+.cfn_outputs
