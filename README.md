@@ -3,7 +3,7 @@ This is a Lambda function that can auto tagging newly created AWS resources. It 
 
 Notice that the solution can only tag newly created resources, if you want to tag resources already created, please go to AWS Tag Editor Console, https://console.aws.amazon.com/resource-groups/tag-editor/find-resources.
 
-If you want to deploy by CloudFormation, please refer https://github.com/crazyoyo/aws-tagging-automation/tree/main/cloudformation.
+If you want to deploy by CloudFormation, please refer https://github.com/aws-samples/resource-tagging-automation/tree/main/cloudformation.
 
 
 ### Project Architecture
@@ -78,10 +78,10 @@ $ cdk destroy
 ```
 
 ### Support more resources:
-1. Go to AWS Console and navigate to Amazon EventBridge --> Rules, find and select rule 'aws-tagging-automation-awstaggingautomationruleXXXXXX', click 'Edit' button
+1. Go to AWS Console and navigate to Amazon EventBridge --> Rules, find and select rule 'resource-tagging-automation-awstaggingautomationruleXXXXXX', click 'Edit' button
 2. Go to step 2 and find 'Event pattern' chapter, add new resorce in eventSource, eventName and source
 3. Keep clicking 'Next' button until click 'Update rule' in step 5
-4. Go to AWS Console and navigate to Lambda --> Functions, find out function 'aws-tagging-automation-function'
+4. Go to AWS Console and navigate to Lambda --> Functions, find out function 'resource-tagging-automation-function'
 5. Modify the function code, add a method to get newly created resources' ARN list from EventBridge Rule message
 6. New method example is as below
 ```
