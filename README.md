@@ -13,7 +13,7 @@ If you want to deploy by CloudFormation, please refer https://github.com/crazyoy
 ### Prerequisite
 1. A Linux machine to deploy CDK codes, with AWS IAM user's AK/SK configured.
 
-2. Python3.8 and NodeJS are installed in the Linux machine.
+2. Python3.8 and NodeJS are installed on the Linux machine.
 
 
 ### To deploy
@@ -64,7 +64,7 @@ $ cdk deploy --require-approval never --parameters tags='{"TagName1": "TagValue1
 2. Ensure the lambda function is successfully created.
 
 ```
-$ aws lambda list-functions | grep FunctionName | grep aws-tagging-automation-function
+$ aws lambda list-functions | grep FunctionName | grep resource-tagging-automation-function
 ```
 
 3. Lambda function will be invoked when EventBridge rule triggered, such as EC2 Runinstances event, and the resource will be tagged by the Lambda function.
