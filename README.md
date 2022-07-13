@@ -1,4 +1,4 @@
-## Guide to deploy Resource Tagging Function by CDK or CloudFormation
+## Guide to deploy Resource Tagging Function by CDK/CloudFormation
 This is a Lambda function that can auto tagging newly created AWS resources. It is triggered by EventBridge events from CloudTrail. Currently it supports tagging EC2, S3, DynamoDB, RDS, Lambda, EFS, EBS, ELB, OpenSearch, SNS, SQS and KMS.
 
 Notice that the solution can only tag newly created resources, if you want to tag resources already created, please go to AWS Tag Editor Console, https://console.aws.amazon.com/resource-groups/tag-editor/find-resources.
