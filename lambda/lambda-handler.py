@@ -144,6 +144,42 @@ def aws_es(event):
         arnList.append(event['detail']['responseElements']['domainStatus']['aRN'])
         return arnList
 
+def aws_elasticache(event):
+    arnList = []
+    _account = event['account']
+    _region = event['region']
+    ecArnTemplate = 'arn:aws:elasticache:@region@:@account@:cluster:@ecId@'
+
+    if event['detail']['eventName'] == 'CreateReplicationGroup' or event['detail']['eventName'] == 'ModifyReplicationGroupShardConfiguration':
+        print("tagging for new ElastiCache cluster...")
+        _replicationGroupId = event['detail']['requestParameters']['replicationGroupId']
+        waiter = boto3.client('elasticache').get_waiter('replication_group_available')
+        waiter.wait(
+            ReplicationGroupId = _replicationGroupId,
+            WaiterConfig={
+                'Delay': 123,
+                'MaxAttempts': 123
+            }
+        )
+        _clusters = event['detail']['responseElements']['memberClusters']
+        for _ec in _clusters:
+            arnList.append(ecArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@ecId@', _ec))
+
+    elif event['detail']['eventName'] == 'CreateCacheCluster':
+        print("tagging for new ElastiCache node...")
+        _cacheClusterId = event['detail']['responseElements']['cacheClusterId']
+        waiter = boto3.client('elasticache').get_waiter('cache_cluster_available')
+        waiter.wait(
+            CacheClusterId = _cacheClusterId,
+            WaiterConfig={
+                'Delay': 123,
+                'MaxAttempts': 123
+            }
+        )
+        arnList.append(event['detail']['responseElements']['aRN'])
+
+    return arnList
+
 def main(event, context):
     print("input event is: ")
     print(event)
