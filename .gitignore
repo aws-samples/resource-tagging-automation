@@ -6,3 +6,4 @@
 cdk.out
 .cdk_output
 .cfn_outputs
+resourcetagging/__pycache__

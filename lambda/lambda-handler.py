@@ -179,6 +179,15 @@ def aws_elasticache(event):
         arnList.append(event['detail']['responseElements']['aRN'])
 
     return arnList
+    
+def get_identity(event):
+    print("getting user Identity...")
+    _userId = event['detail']['userIdentity']['arn'].split('/')[-1]
+    
+    if event['detail']['userIdentity']['type'] == 'AssumedRole':
+        _roleId = event['detail']['userIdentity']['arn'].split('/')[-2]
+        return _userId, _roleId
+    return _userId
 
 def main(event, context):
     print("input event is: ")
@@ -189,8 +198,18 @@ def main(event, context):
     resARNs = globals()[_method](event)
     print("resource arn is: ")
     print(resARNs)
-
+    
     _res_tags =  json.loads(os.environ['tags'])
+    
+    if event['detail']['userIdentity']['type'] == 'AssumedRole':
+        _userId, _roleId = get_identity(event)
+        _res_tags['roleId'] = _roleId
+    else:
+        _userId = get_identity(event)
+    
+    _res_tags['userId'] = _userId
+    
+    print(_res_tags)
     boto3.client('resourcegroupstaggingapi').tag_resources(
         ResourceARNList=resARNs,
         Tags=_res_tags
