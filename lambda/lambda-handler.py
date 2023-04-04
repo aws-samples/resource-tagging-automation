@@ -200,14 +200,16 @@ def main(event, context):
     print(resARNs)
     
     _res_tags =  json.loads(os.environ['tags'])
-    
-    if event['detail']['userIdentity']['type'] == 'AssumedRole':
-        _userId, _roleId = get_identity(event)
-        _res_tags['roleId'] = _roleId
-    else:
-        _userId = get_identity(event)
-    
-    _res_tags['userId'] = _userId
+    _identity_recording = os.environ['identityRecording']
+
+    if _identity_recording == 'true':
+        if event['detail']['userIdentity']['type'] == 'AssumedRole':
+            _userId, _roleId = get_identity(event)
+            _res_tags['roleId'] = _roleId
+        else:
+            _userId = get_identity(event)
+        
+        _res_tags['userId'] = _userId
     
     print(_res_tags)
     boto3.client('resourcegroupstaggingapi').tag_resources(

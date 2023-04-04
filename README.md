@@ -1,6 +1,8 @@
 ## Guide to Resource Tagging Automation
 This is a Lambda function that can auto tagging newly created AWS resources. It is triggered by EventBridge events from CloudTrail logs. Currently it supports tagging EC2, S3, DynamoDB, RDS, Lambda, EFS, EBS, ELB, OpenSearch, SNS, SQS, ElastiCache and KMS.
 
+The solution will Tag those supported resources with pre-defined tags and also (optionally) the identity used to deploy them for easier ownership and cost allocation.
+
 Notice that the solution can only tag newly created resources, if you want to tag resources already created, please go to AWS Tag Editor Console, https://console.aws.amazon.com/resource-groups/tag-editor/find-resources.
 
 If you want to deploy by CloudFormation, please refer https://github.com/aws-samples/resource-tagging-automation/tree/main/cloudformation.
@@ -57,6 +59,11 @@ $ cdk bootstrap
 $ cdk deploy --require-approval never --parameters tags='{"TagName1": "TagValue1","TagName2": "TagValue2"}'
 ```
 
+(Optional) You can also choose to disable the Identity Recording feature by definening the identityRecording parameter to false. This feature is enabled by default.
+
+```
+$ cdk deploy --require-approval never --parameters tags='{"TagName1": "TagValue1","TagName2": "TagValue2"}' --parameters identityRecording='false'
+```
 
 ### To check
 1. Configure AWS CLI, please refer https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-config

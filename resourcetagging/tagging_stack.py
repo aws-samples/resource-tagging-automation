@@ -19,6 +19,7 @@ class ResourceTaggingStack(Stack):
 
         # set parameters
         tags = CfnParameter(self, "tags", type="String", description="tag name and value with json format.")
+        identityRecording = CfnParameter(self, "identityRecording", type="String", default="true", description="Defines if the tool records the requester identity as a tag.")
 
         # create role for lambda function
         lambda_role = _iam.Role(self, "lambda_role",
@@ -47,7 +48,8 @@ class ResourceTaggingStack(Stack):
                                     function_name="resource-tagging-automation-function",
                                     role=lambda_role,
                                     environment={
-                                        "tags": tags.value_as_string
+                                        "tags": tags.value_as_string,
+                                        "identityRecording": identityRecording.value_as_string
                                     }
                         )
 
