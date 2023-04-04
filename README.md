@@ -59,7 +59,7 @@ $ cdk bootstrap
 $ cdk deploy --require-approval never --parameters tags='{"TagName1": "TagValue1","TagName2": "TagValue2"}'
 ```
 
-(Optional) You can also choose to disable the Identity Recording feature by definening the identityRecording parameter to false. This feature is enabled by default.
+(Optional) You can also choose to disable the Identity Recording feature by definening the `identityRecording` parameter to false. This feature is enabled by default.
 
 ```
 $ cdk deploy --require-approval never --parameters tags='{"TagName1": "TagValue1","TagName2": "TagValue2"}' --parameters identityRecording='false'
