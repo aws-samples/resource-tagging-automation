@@ -15,7 +15,7 @@
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 AWSTemplateFormatVersion: "2010-09-09"
-Description: AWS auto tagging for service EC2, S3, DynamoDB, RDS, Lambda, EFS, EBS, ELB, OpenSearch, SNS, SQS, KMS
+Description: AWS auto tagging solution for EC2, ELB, EFS, EBS, S3, RDS, DynamoDB, Lambda, OpenSearch, ElastiCache, Redshift, SageMaker, SNS, SQS, KMS, MQ, MSK and ECS.
 
 Parameters:
   AutomationTags:
@@ -68,7 +68,7 @@ Resources:
                   - 'dynamodb:TagResource'
                   - 'dynamodb:DescribeTable'
 
-                  # Rules for lambdas
+                  # Rules for Lambdas
                   - 'lambda:TagResource'
                   - 'lambda:ListTags'
 
@@ -86,17 +86,17 @@ Resources:
                   - 'rds:AddTagsToResource'
                   - 'rds:DescribeDBInstances'
 
-                  # Rules for sns
+                  # Rules for SNS
                   - 'sns:TagResource'
 
-                  # Rules for sqs
+                  # Rules for SQS
                   - 'sqs:ListQueueTags'
                   - 'sqs:TagQueue'
 
-                  # Rules for opensearch
+                  # Rules for OpenSearch
                   - 'es:AddTags'
 
-                  # Rules for kms
+                  # Rules for KMS
                   - 'kms:ListResourceTags'
                   - 'kms:TagResource'
 
@@ -112,6 +112,26 @@ Resources:
                   - 'logs:CreateLogGroup'
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
+
+                  # Rules for Redshift
+                  - 'redshift:CreateTags'
+                  - 'redshift-serverless:TagResource'
+
+                  # Rules for Sagemaker
+                  - 'sagemaker:AddTags'
+
+                  # Rules for ECS
+                  - 'ecs:TagResource'
+
+                  # Rules for MSK
+                  - 'kafka:TagResource'
+
+                  # Rules for CloudWatch logs and alarms
+                  - 'logs:TagLogGroup'
+                  - 'cloudwatch:TagResource'
+
+                  # Rules for Amazon MQ
+                  - 'mq:CreateTags'
 
                   # Rules for Resource Group Tag Editor
                   - 'tag:getResources'
@@ -273,20 +293,169 @@ Resources:
                       arnList.append(event['detail']['responseElements']['domainStatus']['aRN'])
                       return arnList
 
+              def aws_kafka(event):
+                  arnList = []
+                  if event['detail']['eventName'] == 'CreateClusterV2':
+                      print("tagging for new msk...")
+                      arnList.append(event['detail']['responseElements']['clusterArn'])
+                      return arnList
+
+              def aws_ecs(event):
+                  arnList = []
+                  if event['detail']['eventName'] == 'CreateCluster':
+                      print("tagging for new ecs...")
+                      arnList.append(event['detail']['responseElements']['cluster']['clusterArn'])
+                      return arnList
+
+              def aws_logs(event):
+                  arnList = []
+                  _account = event['account']
+                  _region = event['region']
+                  logsArnTemplate = 'arn:aws:logs:@region@:@account@:log-group:@logName@'
+                  if event['detail']['eventName'] == 'CreateLogGroup':
+                      print("tagging for new cloudwatch logs...")
+                      _logName = event['detail']['requestParameters']['logGroupName']
+                      arnList.append(logsArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@logName@', _logName))
+                      return arnList
+
+              def aws_monitoring(event):
+                  arnList = []
+                  _account = event['account']
+                  _region = event['region']
+                  alarmArnTemplate = 'arn:aws:cloudwatch:@region@:@account@:alarm:@alarmName@'
+                  if event['detail']['eventName'] == 'PutMetricAlarm':
+                      print("tagging for new Cloudwatch alarm...")
+                      _alarmName = event['detail']['requestParameters']['alarmName']
+                      arnList.append(alarmArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@alarmName@', _alarmName))        
+                      return arnList
+
+              def aws_amazonmq(event):
+                  arnList = []
+                  if event['detail']['eventName'] == 'CreateBroker':
+                      print("tagging for new Amazon MQ...")
+                      arnList.append(event['detail']['responseElements']['brokerArn'])
+                      return arnList
+
+              def aws_redshift(event):
+                  arnList = []
+                  _account = event['account']
+                  _region = event['region']
+                  redshiftTemplate = 'arn:aws:redshift:@region@:@account@:cluster:@clusterID@'
+                  if event['detail']['eventName'] == 'CreateCluster':
+                      print("tagging for new Redshift...")
+                      _redshiftID = event['detail']['requestParameters']['clusterIdentifier']
+                      arnList.append(redshiftTemplate.replace('@region@', _region).replace('@account@', _account).replace('@clusterID@', _redshiftID))
+                      return arnList
+
+              def aws_redshift_serverless(event):
+                  arnList = []
+                  #redshift_serverless need native tag method
+                  client = boto3.client('redshift-serverless')
+                  tag = os.environ['tags'].replace('"', "")
+                  tag_o = tag[1:-1]
+                  tags = tag_o.split(',')
+                  tag_arr = []
+                  for t in tags:
+                      d = {}
+                      key = t.split(':')[0]
+                      value = t.split(':')[1]
+                      d['key'] = key
+                      d['value'] = value
+                      tag_arr.append(d)
+                  print(tag_arr)
+
+                  if event['detail']['eventName'] == 'CreateWorkgroup':
+                      print("tagging for new redshift serverless workgroup...")
+                      _workgroupArn = event['detail']['responseElements']['workgroup']['workgroupArn']
+                      client.tag_resource(resourceArn = _workgroupArn,tags = tag_arr)
+                      arnList.append(_workgroupArn)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateNamespace':
+                      print("tagging for new redshift serverless namespace...")
+                      _namespaceArn = event['detail']['responseElements']['namespace']['namespaceArn']
+                      client.tag_resource(resourceArn = _namespaceArn,tags = tag_arr)
+                      arnList.append(_namespaceArn)
+                      return arnList
+
+              def aws_sagemaker(event):
+                  arnList = []
+                  if event['detail']['eventName'] == 'CreateNotebookInstance':
+                      print("tagging for new notebook instance...")
+                      _instance = event['detail']['responseElements']['notebookInstanceArn']
+                      arnList.append(_instance)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateProcessingJob':
+                      print("tagging for new processing job ....")
+                      _job = event['detail']['responseElements']['processingJobArn']
+                      arnList.append(_job)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateEndpoint':
+                      print("tagging for new endpoint ...")
+                      _endpoint = event['detail']['responseElements']['endpointArn']
+                      arnList.append(_endpoint)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateDomain':
+                      print("tagging for new CreateDomain ...")
+                      _domain = event['detail']['responseElements']['domainArn']
+                      arnList.append(_domain)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateModel':
+                      print("tagging for new CreateModel ...")
+                      _model = event['detail']['responseElements']['modelArn']
+                      arnList.append(_model)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateLabelingJob':
+                      print("tagging for new CreateLabelingJob ...")
+                      _labelingJob = event['detail']['responseElements']['labelingJobArn']
+                      arnList.append(_labelingJob)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateTrainingJob':
+                      print("tagging for new CreateTrainingJob ...")
+                      _trainingJobArn = event['detail']['responseElements']['trainingJobArn']
+                      arnList.append(_trainingJobArn)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateTransformJob':
+                      print("tagging for new CreateTransformJob ...")
+                      _transformJobArn = event['detail']['responseElements']['transformJobArn']
+                      arnList.append(_transformJobArn)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateUserProfile':
+                      print("tagging for new CreateUserProfile ...")
+                      _userProfileArn = event['detail']['responseElements']['userProfileArn']
+                      arnList.append(_userProfileArn)
+                      return arnList
+                  elif event['detail']['eventName'] == 'CreateWorkteam':
+                     print("tagging for new CreateWorkteam ...")
+                     _workteamArn = event['detail']['responseElements']['workteamArn']
+                     arnList.append(_workteamArn)
+                     return arnList
+
+              def transfromArn4CN(event, resARNs):
+                  _region = event['region']
+                  if _region == 'cn-north-1' or _region == 'cn-northwest-1':
+                      _resARNs = []
+                      # deal with china arns
+                      for _arn in resARNs:
+                          arn = _arn.replace("arn:aws:", "arn:aws-cn:", 1)
+                          _resARNs.append(arn)
+                      resARNs = _resARNs
+
+                  return resARNs
+
+
               def main(event, context):
-                  print("input event is: ")
-                  print(event)
+                  print("input event is: ", event)
                   print("new source is " + event['source'])
-                  _method = event['source'].replace('.', "_")
+                  _method = event['source'].replace('.', "_").replace('-', "_")
 
                   resARNs = globals()[_method](event)
-                  print("resource arn is: ")
-                  print(resARNs)
+                  resARNs = transfromArn4CN(event, resARNs)
+                  print("resource arn is: ", resARNs)
 
-                  _res_tags =  json.loads(os.environ['tags'])
+                  res_tags = json.loads(os.environ['tags'])
                   boto3.client('resourcegroupstaggingapi').tag_resources(
                       ResourceARNList=resARNs,
-                      Tags=_res_tags
+                      Tags=res_tags
                   )
 
                   return {
@@ -300,7 +469,7 @@ Resources:
       Environment:
         Variables:
           tags: !Ref AutomationTags
-      
+
   EventBridgeRule:
     Type: AWS::Events::Rule
     Properties:
@@ -308,19 +477,19 @@ Resources:
       Name: !Ref EventBridgeRuleName
       EventPattern: '{
                       "detail": {
-                        "eventSource": ["ec2.amazonaws.com", "elasticloadbalancing.amazonaws.com", "s3.amazonaws.com", "rds.amazonaws.com", "lambda.amazonaws.com", "dynamodb.amazonaws.com", "elasticfilesystem.amazonaws.com", "es.amazonaws.com", "sqs.amazonaws.com", "sns.amazonaws.com", "kms.amazonaws.com"],
-                        "eventName": ["RunInstances", "CreateFunction20150331", "CreateBucket", "CreateDBInstance", "CreateTable", "CreateVolume", "CreateLoadBalancer", "CreateMountTarget", "CreateDomain", "CreateQueue", "CreateTopic", "CreateKey"]
+                        "eventSource": ["ec2.amazonaws.com", "elasticloadbalancing.amazonaws.com", "s3.amazonaws.com", "rds.amazonaws.com", "lambda.amazonaws.com", "dynamodb.amazonaws.com", "elasticfilesystem.amazonaws.com", "es.amazonaws.com", "sqs.amazonaws.com", "sns.amazonaws.com", "kms.amazonaws.com","redshift.amazonaws.com", "redshift-serverless.amazonaws.com", "sagemaker.amazonaws.com", "ecs.amazonaws.com", "monitoring.amazonaws.com", "logs.amazonaws.com", "kafka.amazonaws.com", "amazonmq.amazonaws.com"],
+                        "eventName": ["RunInstances", "CreateFunction20150331", "CreateBucket", "CreateDBInstance", "CreateTable", "CreateVolume", "CreateLoadBalancer", "CreateMountTarget", "CreateDomain", "CreateQueue", "CreateTopic", "CreateKey", "CreateCluster", "CreateNamespace", "CreateWorkgroup", "CreateNotebookInstance", "CreateProcessingJob", "CreateEndpoint", "CreateDomain", "CreateModel", "CreateLabelingJob", "CreateTrainingJob", "CreateTransformJob", "CreateUserProfile", "CreateWorkteam", "PutMetricAlarm", "CreateLogGroup", "CreateClusterV2", "CreateBroker"]
                       },
-                      "source": ["aws.ec2", "aws.elasticloadbalancing", "aws.rds", "aws.lambda", "aws.s3", "aws.dynamodb", "aws.elasticfilesystem", "aws.es", "aws.sqs", "aws.sns", "aws.kms"]
+                      "source": ["aws.ec2", "aws.elasticloadbalancing", "aws.rds", "aws.lambda", "aws.s3", "aws.dynamodb", "aws.elasticfilesystem", "aws.es", "aws.sqs", "aws.sns", "aws.kms", "aws.ecs", "aws.redshift", "aws.redshift-serverless", "aws.sagemaker", "aws.monitoring", "aws.logs", "aws.kafka", "aws.amazonmq"]
                     }'
-      Targets: 
-        - Arn: !GetAtt LambdaAutoTagging.Arn 
+      Targets:
+        - Arn: !GetAtt LambdaAutoTagging.Arn
           Id: !Ref LambdaAutoTaggingFunctionName
 
-  PermissionForEventsToInvokeLambda: 
+  PermissionForEventsToInvokeLambda:
     Type: AWS::Lambda::Permission
-    Properties: 
+    Properties:
       FunctionName: !Ref "LambdaAutoTaggingFunctionName"
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: !GetAtt EventBridgeRule.Arn 
+      SourceArn: !GetAtt EventBridgeRule.Arn
