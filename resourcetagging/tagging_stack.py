@@ -40,7 +40,7 @@ class ResourceTaggingStack(Stack):
 
         # create lambda function
         tagging_function = _lambda.Function(self, "resource_tagging_automation_function",
-                                    runtime=_lambda.Runtime.PYTHON_3_8,
+                                    runtime=_lambda.Runtime.PYTHON_3_10,
                                     memory_size=128,
                                     timeout=Duration.seconds(600),
                                     handler="lambda-handler.main",
@@ -56,6 +56,7 @@ class ResourceTaggingStack(Stack):
         _eventRule = _events.Rule(self, "resource-tagging-automation-rule",
                         event_pattern=_events.EventPattern(
                             source=["aws.ec2", "aws.elasticloadbalancing", "aws.rds", "aws.lambda", "aws.s3", "aws.dynamodb", "aws.elasticfilesystem", "aws.es", "aws.sqs", "aws.sns", "aws.kms", "aws.elasticache"],
+                            detail_type=["AWS API Call via CloudTrail"],
                             detail={
                                 "eventSource": ["ec2.amazonaws.com", "elasticloadbalancing.amazonaws.com", "s3.amazonaws.com", "rds.amazonaws.com", "lambda.amazonaws.com", "dynamodb.amazonaws.com", "elasticfilesystem.amazonaws.com", "es.amazonaws.com", "sqs.amazonaws.com", "sns.amazonaws.com", "kms.amazonaws.com", "elasticache.amazonaws.com"],
                                 "eventName": ["RunInstances", "CreateFunction20150331", "CreateBucket", "CreateDBInstance", "CreateTable", "CreateVolume", "CreateLoadBalancer", "CreateMountTarget", "CreateDomain", "CreateQueue", "CreateTopic", "CreateKey", "CreateReplicationGroup", "CreateCacheCluster", "ModifyReplicationGroupShardConfiguration"]
@@ -63,7 +64,5 @@ class ResourceTaggingStack(Stack):
                         )
                     )
 
-        _eventRule.add_target(_targets.LambdaFunction(tagging_function,
-            retry_attempts=2
-        )
+        _eventRule.add_target(_targets.LambdaFunction(tagging_function, retry_attempts=2)
 )

@@ -160,15 +160,16 @@ Resources:
                   _region = event['region']
                   ec2ArnTemplate = 'arn:aws:ec2:@region@:@account@:instance/@instanceId@'
                   volumeArnTemplate = 'arn:aws:ec2:@region@:@account@:volume/@volumeId@'
+                  ec2_resource = boto3.resource('ec2')
                   if event['detail']['eventName'] == 'RunInstances':
                       print("tagging for new EC2...")
-                      _instanceId = event['detail']['responseElements']['instancesSet']['items'][0]['instanceId']
-                      arnList.append(ec2ArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@instanceId@', _instanceId))
+                      for item in event['detail']['responseElements']['instancesSet']['items']:
+                          _instanceId = item['instanceId']
+                          arnList.append(ec2ArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@instanceId@', _instanceId))
 
-                      ec2_resource = boto3.resource('ec2')
-                      _instance = ec2_resource.Instance(_instanceId)
-                      for volume in _instance.volumes.all():
-                          arnList.append(volumeArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@volumeId@', volume.id))
+                          _instance = ec2_resource.Instance(_instanceId)
+                          for volume in _instance.volumes.all():
+                              arnList.append(volumeArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@volumeId@', volume.id))
 
                   elif event['detail']['eventName'] == 'CreateVolume':
                       print("tagging for new EBS...")
@@ -439,7 +440,6 @@ Resources:
                           arn = _arn.replace("arn:aws:", "arn:aws-cn:", 1)
                           _resARNs.append(arn)
                       resARNs = _resARNs
-
                   return resARNs
 
 
@@ -464,7 +464,7 @@ Resources:
                   }
       FunctionName: !Ref LambdaAutoTaggingFunctionName
       Handler: index.main
-      Runtime: python3.8
+      Runtime: python3.10
       Timeout: 300
       Environment:
         Variables:
@@ -480,6 +480,7 @@ Resources:
                         "eventSource": ["ec2.amazonaws.com", "elasticloadbalancing.amazonaws.com", "s3.amazonaws.com", "rds.amazonaws.com", "lambda.amazonaws.com", "dynamodb.amazonaws.com", "elasticfilesystem.amazonaws.com", "es.amazonaws.com", "sqs.amazonaws.com", "sns.amazonaws.com", "kms.amazonaws.com","redshift.amazonaws.com", "redshift-serverless.amazonaws.com", "sagemaker.amazonaws.com", "ecs.amazonaws.com", "monitoring.amazonaws.com", "logs.amazonaws.com", "kafka.amazonaws.com", "amazonmq.amazonaws.com"],
                         "eventName": ["RunInstances", "CreateFunction20150331", "CreateBucket", "CreateDBInstance", "CreateTable", "CreateVolume", "CreateLoadBalancer", "CreateMountTarget", "CreateDomain", "CreateQueue", "CreateTopic", "CreateKey", "CreateCluster", "CreateNamespace", "CreateWorkgroup", "CreateNotebookInstance", "CreateProcessingJob", "CreateEndpoint", "CreateDomain", "CreateModel", "CreateLabelingJob", "CreateTrainingJob", "CreateTransformJob", "CreateUserProfile", "CreateWorkteam", "PutMetricAlarm", "CreateLogGroup", "CreateClusterV2", "CreateBroker"]
                       },
+                      "detail-type": ["AWS API Call via CloudTrail"],
                       "source": ["aws.ec2", "aws.elasticloadbalancing", "aws.rds", "aws.lambda", "aws.s3", "aws.dynamodb", "aws.elasticfilesystem", "aws.es", "aws.sqs", "aws.sns", "aws.kms", "aws.ecs", "aws.redshift", "aws.redshift-serverless", "aws.sagemaker", "aws.monitoring", "aws.logs", "aws.kafka", "aws.amazonmq"]
                     }'
       Targets:

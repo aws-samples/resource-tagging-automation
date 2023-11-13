@@ -11,15 +11,16 @@ def aws_ec2(event):
     _region = event['region']
     ec2ArnTemplate = 'arn:aws:ec2:@region@:@account@:instance/@instanceId@'
     volumeArnTemplate = 'arn:aws:ec2:@region@:@account@:volume/@volumeId@'
+    ec2_resource = boto3.resource('ec2')
     if event['detail']['eventName'] == 'RunInstances':
         print("tagging for new EC2...")
-        _instanceId = event['detail']['responseElements']['instancesSet']['items'][0]['instanceId']
-        arnList.append(ec2ArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@instanceId@', _instanceId))
+        for item in event['detail']['responseElements']['instancesSet']['items']:
+            _instanceId = item['instanceId']
+            arnList.append(ec2ArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@instanceId@', _instanceId))
 
-        ec2_resource = boto3.resource('ec2')
-        _instance = ec2_resource.Instance(_instanceId)
-        for volume in _instance.volumes.all():
-            arnList.append(volumeArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@volumeId@', volume.id))
+            _instance = ec2_resource.Instance(_instanceId)
+            for volume in _instance.volumes.all():
+                arnList.append(volumeArnTemplate.replace('@region@', _region).replace('@account@', _account).replace('@volumeId@', volume.id))
 
     elif event['detail']['eventName'] == 'CreateVolume':
         print("tagging for new EBS...")
@@ -190,15 +191,13 @@ def get_identity(event):
     return _userId
 
 def main(event, context):
-    print("input event is: ")
-    print(event)
-    print("new source is " + event['source'])
+    print(f"input event is: {event}")
+    print("new source is ", event['source'])
     _method = event['source'].replace('.', "_")
 
     resARNs = globals()[_method](event)
-    print("resource arn is: ")
-    print(resARNs)
-    
+    print("resource arn is: ", resARNs)
+
     _res_tags =  json.loads(os.environ['tags'])
     _identity_recording = os.environ['identityRecording']
 
@@ -219,5 +218,5 @@ def main(event, context):
 
     return {
         'statusCode': 200,
-        'body': json.dumps('Finished map tagging with ' + event['source'])
+        'body': json.dumps('Finished tagging with ' + event['source'])
     }
