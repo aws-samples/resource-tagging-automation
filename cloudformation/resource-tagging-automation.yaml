@@ -42,9 +42,58 @@ Parameters:
     Type: String
     Description: IAM customed managed policy
     Default: resource-tagging-automation-policy
+  
+  TrailName:
+    Type: String
+    Description: Name of the Cloudtrail to record events
+    Default: resource-tagging-automation-trail
 
 Resources:
-  # Lambda functions resources
+  # S3 Bucket for Cloudtrail
+  TrailBucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join [ "-", ["tagging-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
+
+  # S3 Bucket policy
+  TrailBucketPolicy:
+    DependsOn: TrailBucket
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref TrailBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: AWSCloudTrailAclCheck
+          Effect: Allow
+          Principal:
+            Service: 'cloudtrail.amazonaws.com'
+          Action: 's3:GetBucketAcl'
+          Resource: !Sub 'arn:aws:s3:::${TrailBucket}'
+        - Sid: AWSCloudTrailWrite
+          Effect: Allow
+          Principal:
+            Service: 'cloudtrail.amazonaws.com'
+          Action: 's3:PutObject'
+          Resource: !Sub 'arn:aws:s3:::${TrailBucket}/AWSLogs/${AWS::AccountId}/*'
+          Condition:
+            StringEquals:
+              's3:x-amz-acl': 'bucket-owner-full-control'
+
+  # Cloudtrail resource
+  Trail:
+    DependsOn: TrailBucketPolicy
+    Type: AWS::CloudTrail::Trail
+    Properties:
+      S3BucketName: !Ref TrailBucket
+      IsLogging: true
+      TrailName: !Ref TrailName
+      EnableLogFileValidation: false
+      IncludeGlobalServiceEvents: true
+      IsMultiRegionTrail: true
+
+  # Lambda function resource
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
