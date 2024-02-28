@@ -55,6 +55,14 @@ Resources:
     DeletionPolicy: Retain
     Properties:
       BucketName: !Join [ "-", ["tagging-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
 
   # S3 Bucket policy
   TrailBucketPolicy:
@@ -87,12 +95,131 @@ Resources:
     Type: AWS::CloudTrail::Trail
     Properties:
       S3BucketName: !Ref TrailBucket
+      KMSKeyId: !Ref 'TrailKMSKey'
       IsLogging: true
+      CloudWatchLogsRoleArn:
+        Fn::GetAtt:
+        - TrailLogsRole
+        - Arn
+      CloudWatchLogsLogGroupArn:
+        Fn::GetAtt:
+        - TrailLogGroup
+        - Arn
       TrailName: !Ref TrailName
       EnableLogFileValidation: false
       IncludeGlobalServiceEvents: true
       IsMultiRegionTrail: true
 
+  TrailLogsRole:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Sid: AssumeRole
+            Effect: Allow
+            Principal:
+              Service: 'cloudtrail.amazonaws.com'
+            Action: 'sts:AssumeRole'
+        Policies:
+        - PolicyName: 'cloudtrail-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+            - Effect: Allow
+              Action:
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              Resource: 
+                Fn::GetAtt: [TrailLogGroup, Arn]
+  TrailLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        KmsKeyId:
+          Fn::GetAtt:
+          - TrailLogsKMSKey
+          - Arn
+
+  TrailKMSKey:
+      Type: AWS::KMS::Key
+      Properties:
+        KeyPolicy:
+          Version: 2012-10-17
+          Id: !Ref TrailName
+          Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS:
+                Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+          - Sid: Allow CloudTrail to encrypt logs
+            Effect: Allow
+            Action: "kms:GenerateDataKey*"
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Resource: '*'
+            Condition:
+              StringLike:
+                "kms:EncryptionContext:aws:cloudtrail:arn": [
+                  Fn::Sub: "arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*"
+                ]
+              StringEquals:
+                "aws:SourceArn": 
+                  Fn::Sub: "arn:aws:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${TrailName}"
+          - Sid: Allow CloudTrail to describe key
+            Effect: Allow
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Action: kms:DescribeKey
+            Resource: '*'
+          - Sid: Allow principals in the account to decrypt log files
+            Effect: Allow
+            Principal:
+              AWS: "*"
+            Action:
+             - "kms:Decrypt"
+             - "kms:ReEncryptFrom"
+            Resource: "*"
+            Condition:
+              StringEquals: 
+                "kms:CallerAccount":
+                  Ref: AWS::AccountId
+                "kms:EncryptionContext:aws:cloudtrail:arn":
+                  Fn::Sub: "arn:aws:cloudtrail:*:${AWS::AccountId}:trail/*"
+
+  TrailLogsKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: !Join [ "-", ["trail-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
+        Statement:
+        - Sid: Enable IAM User Permissions
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::${AWS::AccountId}:root
+          Action: kms:*
+          Resource: "*"
+        - Sid: Enable Logs
+          Effect: Allow
+          Principal:
+            Service:
+              Fn::Sub: logs.${AWS::Region}.amazonaws.com
+          Action:
+          - kms:Encrypt*
+          - kms:Decrypt*
+          - kms:ReEncrypt*
+          - kms:GenerateDataKey*
+          - kms:Describe
+          Resource: "*"
+          Condition:
+            ArnEquals:
+              kms:EncryptionContext:aws:logs:arn:
+                Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+  
   # Lambda function resource
   LambdaExecutionRole:
     Type: AWS::IAM::Role
