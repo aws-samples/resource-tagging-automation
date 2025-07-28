@@ -48,11 +48,20 @@ Parameters:
     Description: Name of the Cloudtrail to record events
     Default: resource-tagging-automation-trail
 
+  TrailS3Bucket:
+    Type: String
+    Description: Optional existing S3 bucket name for CloudTrail logs. Leave blank to create new bucket.
+    Default: ''
+
+Conditions:
+  CreateTrailBucket: !Equals [!Ref TrailS3Bucket, '']
+
 Resources:
   # S3 Bucket for Cloudtrail
   TrailBucket:
     Type: 'AWS::S3::Bucket'
     DeletionPolicy: Retain
+    Condition: CreateTrailBucket
     Properties:
       BucketName: !Join [ "-", ["tagging-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
 
@@ -60,6 +69,7 @@ Resources:
   TrailBucketPolicy:
     DependsOn: TrailBucket
     Type: AWS::S3::BucketPolicy
+    Condition: CreateTrailBucket
     Properties:
       Bucket: !Ref TrailBucket
       PolicyDocument:
@@ -83,10 +93,9 @@ Resources:
 
   # Cloudtrail resource
   Trail:
-    DependsOn: TrailBucketPolicy
     Type: AWS::CloudTrail::Trail
     Properties:
-      S3BucketName: !Ref TrailBucket
+      S3BucketName: !If [CreateTrailBucket, !Ref TrailBucket, !Ref TrailS3Bucket]
       IsLogging: true
       TrailName: !Ref TrailName
       EnableLogFileValidation: false
