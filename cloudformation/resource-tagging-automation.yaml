@@ -94,6 +94,7 @@ Resources:
   # Cloudtrail resource
   Trail:
     Type: AWS::CloudTrail::Trail
+    DependsOn: TrailBucketPolicy
     Properties:
       S3BucketName: !If [CreateTrailBucket, !Ref TrailBucket, !Ref TrailS3Bucket]
       IsLogging: true
