@@ -61,7 +61,6 @@ Resources:
   TrailBucket:
     Type: 'AWS::S3::Bucket'
     DeletionPolicy: Retain
-    Condition: CreateTrailBucket
     Properties:
       BucketName: !Join [ "-", ["tagging-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
 
@@ -69,7 +68,6 @@ Resources:
   TrailBucketPolicy:
     DependsOn: TrailBucket
     Type: AWS::S3::BucketPolicy
-    Condition: CreateTrailBucket
     Properties:
       Bucket: !Ref TrailBucket
       PolicyDocument:
