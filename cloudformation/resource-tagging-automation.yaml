@@ -60,14 +60,16 @@ Resources:
   # S3 Bucket for Cloudtrail
   TrailBucket:
     Type: 'AWS::S3::Bucket'
+    Condition: CreateTrailBucket
     DeletionPolicy: Retain
     Properties:
       BucketName: !Join [ "-", ["tagging-log", !Select [2, !Split [ "/", !Ref 'AWS::StackId']]]]
 
   # S3 Bucket policy
   TrailBucketPolicy:
-    DependsOn: TrailBucket
     Type: AWS::S3::BucketPolicy
+    Condition: CreateTrailBucket
+    DependsOn: TrailBucket
     Properties:
       Bucket: !Ref TrailBucket
       PolicyDocument:
@@ -92,7 +94,6 @@ Resources:
   # Cloudtrail resource
   Trail:
     Type: AWS::CloudTrail::Trail
-    DependsOn: TrailBucketPolicy
     Properties:
       S3BucketName: !If [CreateTrailBucket, !Ref TrailBucket, !Ref TrailS3Bucket]
       IsLogging: true
@@ -100,6 +101,11 @@ Resources:
       EnableLogFileValidation: false
       IncludeGlobalServiceEvents: true
       IsMultiRegionTrail: true
+      Tags:
+        - Key: ManagedBy
+          Value: CloudFormation
+        - Key: BucketPolicyRef
+          Value: !If [CreateTrailBucket, !Ref TrailBucketPolicy, "N/A"]
 
   # Lambda function resource
   LambdaExecutionRole:
