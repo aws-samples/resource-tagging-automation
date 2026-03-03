@@ -204,11 +204,17 @@ def main(event, context):
     if _identity_recording == 'true':
         if event['detail']['userIdentity']['type'] == 'AssumedRole':
             _userId, _roleId = get_identity(event)
-            _res_tags['roleId'] = _roleId
+            # 新キー
+            _res_tags.setdefault('CreatedByRole', _roleId)
+            # 互換キー
+            _res_tags.setdefault('roleId', _roleId)
         else:
             _userId = get_identity(event)
-        
-        _res_tags['userId'] = _userId
+
+    # 新キー
+    _res_tags.setdefault('CreatedBy', _userId)
+    # 互換キー
+    _res_tags.setdefault('userId', _userId)
     
     print(_res_tags)
     boto3.client('resourcegroupstaggingapi').tag_resources(

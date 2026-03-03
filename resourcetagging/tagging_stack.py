@@ -18,7 +18,7 @@ class ResourceTaggingStack(Stack):
         super().__init__(scope, id, **kwargs)
 
         # set parameters
-        tags = CfnParameter(self, "tags", type="String", description="tag name and value with json format.")
+        tags = CfnParameter(self, "tags", type="String", default="{}", description="tag name and value with json format.")
         identityRecording = CfnParameter(self, "identityRecording", type="String", default="true", description="Defines if the tool records the requester identity as a tag.")
 
         # create role for lambda function
