@@ -167,4 +167,4 @@ aws lambda update-function-configuration \
 
 - 本仓库 CloudFormation 部署文档：[`cloudformation/README-zh_cn.md`](../cloudformation/README-zh_cn.md)
 - 项目根说明：[`../README.md`](../README.md)
-- 架构图：![架构图](architecture.png)
+- 架构图：![架构图](../docs/architecture.png)
