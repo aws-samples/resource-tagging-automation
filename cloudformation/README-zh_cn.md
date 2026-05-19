@@ -29,6 +29,51 @@
 6. 点击 **Next**，勾选 **I acknowledge that AWS CloudFormation might create IAM resources.**，然后点击 **Create stack**。
 7. 栈创建通常需要 3–5 分钟完成。
 
+### 通过 AWS CLI 部署（适用于 AI Agent）
+
+**Claude Code**、**Qiro-CLI** 等 AI 编程 Agent 可以使用 AWS CLI 直接完成端到端部署，无需打开 AWS Console。前置条件：已安装 AWS CLI v2、已配置凭证（`aws configure` 或 `AWS_PROFILE`）、已设置目标区域（`AWS_REGION` 或 `--region`）。
+
+1. 在 `cloudformation/` 目录下执行部署命令：
+
+    ```bash
+    aws cloudformation deploy \
+      --stack-name resource-tagging-automation \
+      --template-file resource-tagging-automation.yaml \
+      --capabilities CAPABILITY_IAM \
+      --parameter-overrides \
+        AutomationTags='{"TagName1":"TagValue1","TagName2":"TagValue2"}'
+    ```
+
+   如需覆盖更多参数，可继续以 `Key=Value` 形式追加，例如：`TrailS3Bucket=my-existing-log-bucket TrailName=my-trail`。
+
+2. 等待部署完成并验证 Lambda 已就绪：
+
+    ```bash
+    aws cloudformation wait stack-create-complete --stack-name resource-tagging-automation
+    aws lambda get-function --function-name resource-tagging-automation-function \
+      --query 'Configuration.[FunctionName,State,LastUpdateStatus]'
+    ```
+
+3. 后续修改标签时无需重新部署整个栈：
+
+    ```bash
+    aws lambda update-function-configuration \
+      --function-name resource-tagging-automation-function \
+      --environment '{"Variables":{"tags":"{\"Owner\":\"team-a\",\"Env\":\"prod\"}"}}'
+    ```
+
+4. 拆除部署（自动创建的 CloudTrail 桶保留策略为 Retain，如不再需要请手动删除）：
+
+    ```bash
+    aws cloudformation delete-stack --stack-name resource-tagging-automation
+    aws cloudformation wait stack-delete-complete --stack-name resource-tagging-automation
+    ```
+
+**给 AI Agent 的提示：**
+- Lambda 环境变量 `tags` 必须是 JSON 编码后的**字符串**（函数内部会调用 `json.loads`），因此第 3 步中需要对引号进行转义。
+- 若账号已有记录管理事件的 CloudTrail，建议传入 `TrailS3Bucket=<已有桶名>`，让本栈复用现有桶，避免创建重复 Trail。
+- 参数较多时，可以将覆盖项写入文件，使用 `--parameter-overrides file://params.json` 传入。文件内容为 JSON 数组，例如：`[{"ParameterKey":"AutomationTags","ParameterValue":"{\"Owner\":\"team-a\"}"}]`。
+
 ### 说明
 - 本栈创建的 CloudTrail 启用多区域，并包含全局服务事件。
 - 当 `TrailS3Bucket` 留空时，将创建一个名为 `tagging-log-<stack-suffix>` 的新 S3 桶，`DeletionPolicy` 设置为 `Retain`。删除栈**不会**自动删除该桶，若不再需要日志请手动清理。

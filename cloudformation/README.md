@@ -29,6 +29,51 @@ This directory provides the CloudFormation template that deploys the auto-taggin
 6. Click **Next**, check **I acknowledge that AWS CloudFormation might create IAM resources.**, then click **Create stack**.
 7. The stack typically takes 3–5 minutes to finish.
 
+### Deploy via AWS CLI (for AI agents)
+
+AI coding agents like **Claude Code** and **Qiro-CLI** can deploy this stack end-to-end without opening the AWS Console. Prerequisites: AWS CLI v2 installed, credentials configured (`aws configure` or `AWS_PROFILE`), and a target region set (`AWS_REGION` or `--region`).
+
+1. Run the deployment from inside the `cloudformation/` directory:
+
+    ```bash
+    aws cloudformation deploy \
+      --stack-name resource-tagging-automation \
+      --template-file resource-tagging-automation.yaml \
+      --capabilities CAPABILITY_IAM \
+      --parameter-overrides \
+        AutomationTags='{"TagName1":"TagValue1","TagName2":"TagValue2"}'
+    ```
+
+   To override additional parameters, append them as `Key=Value` pairs, e.g. `TrailS3Bucket=my-existing-log-bucket TrailName=my-trail`.
+
+2. Wait for completion and verify the Lambda is live:
+
+    ```bash
+    aws cloudformation wait stack-create-complete --stack-name resource-tagging-automation
+    aws lambda get-function --function-name resource-tagging-automation-function \
+      --query 'Configuration.[FunctionName,State,LastUpdateStatus]'
+    ```
+
+3. Update tags later without redeploying the stack:
+
+    ```bash
+    aws lambda update-function-configuration \
+      --function-name resource-tagging-automation-function \
+      --environment '{"Variables":{"tags":"{\"Owner\":\"team-a\",\"Env\":\"prod\"}"}}'
+    ```
+
+4. Tear down (the auto-created CloudTrail bucket is retained — delete it manually if no longer needed):
+
+    ```bash
+    aws cloudformation delete-stack --stack-name resource-tagging-automation
+    aws cloudformation wait stack-delete-complete --stack-name resource-tagging-automation
+    ```
+
+**Tips for AI agents:**
+- The Lambda environment variable `tags` must be a JSON-encoded **string** (the function calls `json.loads` on it), hence the escaped quotes in step 3.
+- If the account already has a CloudTrail logging management events, pass `TrailS3Bucket=<existing-bucket>` so this stack reuses it and avoids duplicate trails.
+- For complex parameter sets, write the overrides into a file and pass it via `--parameter-overrides file://params.json`. The file should contain a JSON array like `[{"ParameterKey":"AutomationTags","ParameterValue":"{\"Owner\":\"team-a\"}"}]`.
+
 ### Notes
 - The CloudTrail created by this stack is multi-region and includes global service events.
 - When `TrailS3Bucket` is left blank, a new S3 bucket named `tagging-log-<stack-suffix>` is created with `DeletionPolicy: Retain`. Deleting the stack will **not** delete this bucket — clean it up manually if you no longer need the logs.
